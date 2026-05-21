@@ -6,7 +6,7 @@
 
 PKG_NAME="throttnux"
 
-# Define system binaries and package dependencies
+# Core dependencies
 CHECK_DEPS="tc dsniff arp-scan figlet"
 REQUIRED_DEPS="iproute2 dsniff arp-scan figlet"
 REQUIRED_PY_DEPS="psutil"
@@ -16,19 +16,17 @@ HAVE_PY_MISSING_DEPS=0
 PYTHON=""
 
 # ------------------------------------------------------------------------------
-# Terminal UI and Color Configuration (ANSI Escape Sequences)
+# Terminal UI Configuration
 # ------------------------------------------------------------------------------
 NC='\033[0m'
 BOLD='\033[1m'
 DIM='\033[2m'
 
-# Foreground standard colors
 FG_CYAN='\033[36m'
 FG_GREEN='\033[32m'
 FG_RED='\033[31m'
 FG_YELLOW='\033[33m'
 
-# Inverted status badges for structural logging output
 BG_INFO='\033[44;97;1m INFO \033[0m'
 BG_DONE='\033[42;30;1m DONE \033[0m'
 BG_WARN='\033[43;30;1m WARN \033[0m'
@@ -36,7 +34,7 @@ BG_FAIL='\033[41;97;1m FAIL \033[0m'
 BG_INPUT='\033[46;30;1m INPUT \033[0m'
 
 # ------------------------------------------------------------------------------
-# Logging & Output Interface Functions
+# Output Interface
 # ------------------------------------------------------------------------------
 log_info()    { echo -e "${BG_INFO} $1"; }
 log_success() { echo -e "${BG_DONE} ${FG_GREEN}$1${NC}"; }
@@ -45,7 +43,7 @@ log_fail()    { echo -e "${BG_FAIL} ${FG_RED}$1${NC}" >&2; }
 log_prompt()  { echo -n -e "\n${BG_INPUT} ${BOLD}$1${NC}"; }
 
 # ------------------------------------------------------------------------------
-# Pre-Execution Privilege Verification
+# Privilege Verification
 # ------------------------------------------------------------------------------
 if [ "$(id -u)" -ne 0 ]; then
     echo ""
@@ -55,10 +53,10 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 cd "$(dirname "$0")" || exit 1
-# ------------------------------------------------------------------------------
-# Environment Auditing Functions
-# ------------------------------------------------------------------------------
 
+# ------------------------------------------------------------------------------
+# Environment Auditing
+# ------------------------------------------------------------------------------
 check_python() {
     if command -v python3 >/dev/null 2>&1; then
         PYTHON=python3
@@ -74,7 +72,6 @@ check_deps() {
     echo -e "${DIM}──────────────────────────────────────────────────${NC}"
 
     for dep in $CHECK_DEPS; do
-        # Micro-sequence loading indicator for terminal feedback
         local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
         for i in {1..2}; do
             for j in {0..9}; do
@@ -85,7 +82,6 @@ check_deps() {
 
         path="$(command -v "$dep" 2>/dev/null)"
         if [ -n "$path" ]; then
-            # Format output alignment dynamically using left-aligned string padding
             printf "\r  ${FG_GREEN}✔${NC} Verified  ${BOLD}%-12s${NC} ${DIM}➔ %s${NC}\n" "$dep" "$path"
         else
             printf "\r  ${FG_RED}✖${NC} Missing   ${FG_RED}${BOLD}%-12s${NC} ${DIM}➔ Resolution failed${NC}\n" "$dep"
@@ -100,25 +96,37 @@ check_py_deps() {
     log_info "Evaluating Python environment packages..."
     echo -e "${DIM}──────────────────────────────────────────────────${NC}"
     
-    local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
-    for i in {1..2}; do
-        for j in {0..9}; do
-            printf "\r  ${FG_CYAN}%c${NC} Verifying package: ${BOLD}psutil${NC}..." "${spinstr:$j:1}"
-            sleep 0.02
+    for pydep in $REQUIRED_PY_DEPS; do
+        local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+        for i in {1..2}; do
+            for j in {0..9}; do
+                printf "\r  ${FG_CYAN}%c${NC} Verifying package: ${BOLD}%-10s${NC}..." "${spinstr:$j:1}" "$pydep"
+                sleep 0.02
+            done
         done
-    done
 
-    if ! $PYTHON -c "import psutil" 2>/dev/null; then
-        printf "\r  ${FG_RED}✖${NC} Missing   ${FG_RED}${BOLD}psutil${NC}       ${DIM}➔ Resolution failed${NC}\n"
-        HAVE_PY_MISSING_DEPS=1
-    else
-        printf "\r  ${FG_GREEN}✔${NC} Verified  ${BOLD}psutil${NC}       ${DIM}➔ Resolved${NC}\n"
-    fi
+        # Validate against virtual environment if present
+        if [ -f ".venv/bin/python3" ]; then
+            if ! ./.venv/bin/python3 -c "import $pydep" 2>/dev/null; then
+                printf "\r  ${FG_RED}✖${NC} Missing   ${FG_RED}${BOLD}%-12s${NC} ${DIM}➔ Resolution failed${NC}\n" "$pydep"
+                HAVE_PY_MISSING_DEPS=1
+            else
+                printf "\r  ${FG_GREEN}✔${NC} Verified  ${BOLD}%-12s${NC} ${DIM}➔ Resolved${NC}\n" "$pydep"
+            fi
+        else
+            if ! $PYTHON -c "import $pydep" 2>/dev/null; then
+                printf "\r  ${FG_RED}✖${NC} Missing   ${FG_RED}${BOLD}%-12s${NC} ${DIM}➔ Resolution failed${NC}\n" "$pydep"
+                HAVE_PY_MISSING_DEPS=1
+            else
+                printf "\r  ${FG_GREEN}✔${NC} Verified  ${BOLD}%-12s${NC} ${DIM}➔ Resolved${NC}\n" "$pydep"
+            fi
+        fi
+    done
     echo -e "${DIM}──────────────────────────────────────────────────${NC}"
 }
 
 # ------------------------------------------------------------------------------
-# Package Management Engine Execution
+# Package Management
 # ------------------------------------------------------------------------------
 install_pkg() {
     pkgs="$*"
@@ -143,7 +151,7 @@ install_pkg() {
 }
 
 # ------------------------------------------------------------------------------
-# Main Execution Flow Controller
+# Main Execution Flow
 # ------------------------------------------------------------------------------
 run() {
     clear
@@ -155,7 +163,6 @@ run() {
     log_info "Initiating deployment environment validation..."
     echo ""
 
-    # Validate Python Environment
     check_python
     if [ -z "$PYTHON" ]; then
         log_prompt "Python v3 runtime is required. Deploy runtime? (Y/n): "
@@ -173,9 +180,8 @@ run() {
         unset proceed
     fi
 
-    # Validate Core Binary Infrastructure
     check_deps
-    if [ $HAVE_MISSING_DEPS -eq 1 ]; then
+    if [ "$HAVE_MISSING_DEPS" -eq 1 ]; then
         log_prompt "Required binaries are missing. Automate system setup? (Y/n): "
         read -r proceed
 
@@ -190,10 +196,9 @@ run() {
         unset proceed
     fi
 
-    # Validate Library Infrastructure 
     echo -e "${FG_CYAN}${BG_INFO} Setting up isolated Python Virtual Environment...${NC}"
     
-    # Verify if the venv module is natively available (fixes Debian/Ubuntu constraints)
+    # Verify venv module availability (Debian/Ubuntu fix)
     if ! $PYTHON -m venv -h >/dev/null 2>&1; then
         echo ""
         log_warn "Python 'venv' module is missing from the system core."
@@ -201,21 +206,27 @@ run() {
         install_pkg python3-venv
     fi
 
-    # Generate the .venv directory if it does not exist using dynamic binary mapping
     if [ ! -d ".venv" ]; then
         $PYTHON -m venv .venv
     fi
 
-    # Isolate and install Python dependencies within the environment boundaries
     echo "Installing Python dependencies inside environment..."
     ./.venv/bin/pip install --upgrade pip
-    ./.venv/bin/pip install psutil
+    ./.venv/bin/pip install $REQUIRED_PY_DEPS
 
     if [ $? -ne 0 ]; then
         echo ""
         log_fail "Initialization aborted. Environment library extension unfulfilled."
         exit 1
     fi
+
+    # Restore .venv ownership to the original non-root user
+    if [ -n "$SUDO_USER" ]; then
+        chown -R "$SUDO_USER":"$SUDO_USER" .venv
+    fi
+
+    echo ""
+    check_py_deps
 
     echo ""
     log_success "Environment initialization finalized successfully."
