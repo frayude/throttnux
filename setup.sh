@@ -7,8 +7,8 @@
 PKG_NAME="throttnux"
 
 # Define system binaries and package dependencies
-CHECK_DEPS="tc dsniff arp-scan"
-REQUIRED_DEPS="iproute2 dsniff arp-scan"
+CHECK_DEPS="tc dsniff arp-scan figlet"
+REQUIRED_DEPS="iproute2 dsniff arp-scan figlet"
 REQUIRED_PY_DEPS="psutil"
 HAVE_MISSING_DEPS=0
 HAVE_PY_MISSING_DEPS=0
@@ -128,7 +128,7 @@ install_pkg() {
         dnf install -y $pkgs
     elif command -v pacman >/dev/null 2>&1; then
         log_info "Package manager resolved: ${BOLD}pacman${NC}"
-        pacman -Sy --noconfirm $pkgs
+        pacman -Syu --noconfirm $pkgs
     elif command -v apt-get >/dev/null 2>&1; then
         log_info "Package manager resolved: ${BOLD}apt${NC}"
         apt-get update
