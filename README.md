@@ -42,7 +42,7 @@ Just follow the instructions and you're done.
 
 **3. Run**
 ```bash
-sudo python3 main.py
+sudo .venv/bin/python3 main.py
 ```
 
 ## Usage
