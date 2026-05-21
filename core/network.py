@@ -6,10 +6,9 @@ import subprocess
 try:
     import psutil
 except ImportError:
-    print("[ERROR] psutil is not installed.")
-    print("        Fedora/RHEL  : sudo dnf install python3-psutil")
-    print("        Debian/Ubuntu: sudo apt install python3-psutil")
-    print("        Arch Linux   : sudo pacman -S python-psutil")
+    print("[ERROR] Environment configuration unfulfilled.")
+    print("        Please ensure you have initialized the project using: sudo ./setup.sh")
+    print("        To execute Throttnux safely, run: sudo .venv/bin/python3 main.py")
     sys.exit(1)
 
 log = logging.getLogger("throttnux")

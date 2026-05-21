@@ -54,6 +54,7 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+cd "$(dirname "$0")" || exit 1
 # ------------------------------------------------------------------------------
 # Environment Auditing Functions
 # ------------------------------------------------------------------------------
@@ -163,6 +164,7 @@ run() {
         if [ "$proceed" = 'y' ] || [ "$proceed" = 'Y' ] || [ "$proceed" = '' ]; then
             echo ""
             install_pkg python3 || install_pkg python
+            check_python
         else
             echo ""
             log_fail "Initialization aborted. Python dependency unfulfilled."
@@ -188,26 +190,36 @@ run() {
         unset proceed
     fi
 
-    # Validate Library Infrastructure
-    check_py_deps
-    if [ $HAVE_PY_MISSING_DEPS -eq 1 ]; then
-        log_prompt "Python 'psutil' is unlinked. Install extension? (Y/n): "
-        read -r proceed
+    # Validate Library Infrastructure 
+    echo -e "${FG_CYAN}${BG_INFO} Setting up isolated Python Virtual Environment...${NC}"
+    
+    # Verify if the venv module is natively available (fixes Debian/Ubuntu constraints)
+    if ! $PYTHON -m venv -h >/dev/null 2>&1; then
+        echo ""
+        log_warn "Python 'venv' module is missing from the system core."
+        log_info "Attempting to resolve the dependency automatically..."
+        install_pkg python3-venv
+    fi
 
-        if [ "$proceed" = 'y' ] || [ "$proceed" = 'Y' ] || [ "$proceed" = '' ]; then
-            echo ""
-            install_pkg python3-psutil || install_pkg python-psutil
-        else
-            echo ""
-            log_fail "Initialization aborted. Library extension unfulfilled."
-            exit 1
-        fi
-        unset proceed
+    # Generate the .venv directory if it does not exist using dynamic binary mapping
+    if [ ! -d ".venv" ]; then
+        $PYTHON -m venv .venv
+    fi
+
+    # Isolate and install Python dependencies within the environment boundaries
+    echo "Installing Python dependencies inside environment..."
+    ./.venv/bin/pip install --upgrade pip
+    ./.venv/bin/pip install psutil
+
+    if [ $? -ne 0 ]; then
+        echo ""
+        log_fail "Initialization aborted. Environment library extension unfulfilled."
+        exit 1
     fi
 
     echo ""
     log_success "Environment initialization finalized successfully."
-    echo -e "${DIM}Operational state ready. You can now execute the application safely.${NC}\n"
+    echo "Operational state ready. You can now run: sudo .venv/bin/python3 main.py"
 }
 
 run

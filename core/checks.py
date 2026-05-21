@@ -34,8 +34,7 @@ def check_dependencies():
             missing.append(tool)
 
     if missing:
-        log.error(f"Missing required tools: {', '.join(missing)}")
-        log.error("Fedora/RHEL  : sudo dnf install dsniff arp-scan")
-        log.error("Debian/Ubuntu: sudo apt install dsniff arp-scan")
-        log.error("Arch Linux   : sudo pacman -S dsniff arp-scan")
+        log.error(f"Missing required core tools: {', '.join(missing)}")
+        log.error("Please execute the installer script to automatically resolve dependencies:")
+        log.error("Try: sudo ./setup.sh")
         sys.exit(1)
