@@ -9,7 +9,7 @@ PKG_NAME="throttnux"
 # Core dependencies
 CHECK_DEPS="tc dsniff arp-scan figlet"
 REQUIRED_DEPS="iproute2 dsniff arp-scan figlet"
-REQUIRED_PY_DEPS="psutil"
+REQUIRED_PY_DEPS="psutil questionary rich"
 HAVE_MISSING_DEPS=0
 HAVE_PY_MISSING_DEPS=0
 
