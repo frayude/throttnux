@@ -38,7 +38,6 @@ cd throttnux
 chmod +x ./setup.sh && sudo ./setup.sh
 ```
 
-Just follow the instructions and you're done.
 
 **3. Run**
 ```bash
