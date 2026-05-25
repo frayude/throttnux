@@ -23,8 +23,6 @@ Target Device → Your Machine (throttled) → Router → Internet
 
 Linux only (tested on Arch Linux, CachyOS, Fedora 43+ and Ubuntu 26.04+)
 
-All dependencies are available via official package managers.
-
 ## Installation
 
 **1. Clone the repository**
