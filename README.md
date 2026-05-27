@@ -25,21 +25,19 @@ Linux only (tested on Arch Linux, CachyOS, Fedora 43+ and Ubuntu 26.04+)
 
 ## Installation
 
-**1. Clone the repository**
+**1. Install Throttnux**
 ```bash
-git clone https://github.com/frayude/throttnux.git
-cd throttnux
+pipx install throttnux
 ```
 
-**2. Setup the project**
+**2. Create a permanent system shortcut**
 ```bash
-chmod +x ./setup.sh && sudo ./setup.sh
+sudo ln -s ~/.local/bin/throttnux /usr/local/bin/throttnux
 ```
-
 
 **3. Run**
 ```bash
-sudo .venv/bin/python3 main.py
+sudo throttnux
 ```
 
 ## Usage
