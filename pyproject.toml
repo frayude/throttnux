@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "throttnux"
+version = "1.0.1" 
+description = "A Linux tool to limit the bandwidth of any device on your local network, no router access required."
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+dependencies = [
+    "rich",
+    "questionary",
+    "psutil",
+    "pyfiglet"
+]
+
+[project.scripts]
+throttnux = "main:main"
+
+[tool.setuptools]
+py-modules = ["main"]
+packages = ["core"] 
