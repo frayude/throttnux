@@ -30,13 +30,9 @@ Linux only (tested on Arch Linux, CachyOS, Fedora 43+ and Ubuntu 26.04+)
 pipx install throttnux
 ```
 
-**2. Create a permanent system shortcut**
+**2. Run**
 ```bash
 sudo ln -s ~/.local/bin/throttnux /usr/local/bin/throttnux
-```
-
-**3. Run**
-```bash
 sudo throttnux
 ```
 
