@@ -2,9 +2,12 @@
 
 import sys
 import signal
-import atexit
 import logging
 import threading
+import time
+
+from core.console import console
+from pyfiglet import figlet_format
 
 from core import (
     check_os,
@@ -13,7 +16,7 @@ from core import (
     pick_interface,
     pick_router,
     scan_devices,
-    pick_target,
+    display_devices,
     pick_limit,
     enable_ip_forward,
     disable_ip_forward,
@@ -25,6 +28,11 @@ from core import (
     save_config,
     load_config,
     prompt_use_saved_config,
+    prompt_operational_mode,
+    prompt_blacklist_selection,
+    prompt_whitelist_selection,
+    prompt_session_review,
+    match_saved_config
 )
 
 logging.basicConfig(
@@ -57,15 +65,13 @@ def prompt(text, valid_range=None):
 
 
 def banner():
-    print("""
-Welcome to Throttnux
-Per-device bandwidth limiter via ARP spoofing
-""")
+    print()    
+    print(figlet_format("Throttnux", font="standard").rstrip())
+    console.print("  [dim]Per-device bandwidth limiter via ARP spoofing[/dim]")
+    print()    
 
 
 def signal_handler(sig, frame):
-    print()
-    log.info("Interrupt received. Cleaning up...")
     stop_event.set()
 
 
@@ -82,111 +88,177 @@ def main():
     target_mac = None
     target     = None
     limit_mbps = None
-
-    # 1. Check for saved config
-    config     = load_config()
     used_saved = False
+    targets_to_throttle = []
+    
+    interface = pick_interface(prompt)
+    router_ip = pick_router(interface, prompt)
 
-    if config and prompt_use_saved_config(config):
-        interface  = config["interface"]
-        router_ip  = config["router_ip"]
-        target_ip  = config["target_ip"]
-        target_mac = config["target_mac"]
-        limit_mbps = config["limit_mbps"]
-        target     = {
-            "ip":     target_ip,
-            "mac":    target_mac,
-            "vendor": config["target_vendor"],
-        }
-        used_saved = True
+    config  = load_config()
+    devices = scan_devices(interface, router_ip)
+
+    if config:
+        if "targets" in config:
+            last_ips = [t["ip"] for t in config["targets"]]
+        else:
+            last_ips = [config["target_ip"]] if config.get("target_ip") else []
+        last_limit = config.get("limit_mbps")
     else:
-        # 2. Auto-detect interface and router interactively
-        interface = pick_interface(prompt)
-        router_ip = pick_router(interface, prompt)
+        last_ips = []
+        last_limit = None
+    
+    display_devices(devices, last_ips=last_ips, last_limit_mbps=last_limit)
 
-        # 3. Scan and pick target device
-        devices    = scan_devices(interface, router_ip)
-        target     = pick_target(devices, prompt)
-        target_ip  = target["ip"]
-        target_mac = target["mac"]
+    matched_dev = match_saved_config(config, devices)
+    operational_mode = None
+    
+    if matched_dev and config["interface"] == interface and config["router_ip"] == router_ip:
+        action = prompt_use_saved_config(config)
 
-        # 4. Pick bandwidth limit
-        limit_mbps = pick_limit(prompt)
+        while action == "rescan":
+            console.clear()
+            console.print()
+            
+            devices = scan_devices(interface, router_ip, status_msg="Rescanning network, please wait...")
+            display_devices(devices, last_ips=last_ips, last_limit_mbps=last_limit)
 
-    # 5. Confirm — skip if saved config already confirmed
+            matched_dev = match_saved_config(config, devices)
+            if matched_dev:
+                action = prompt_use_saved_config(config)
+            else:
+                action = "new_scan"
+                break
+        
+        if action == "use_saved":
+            limit_mbps = config["limit_mbps"]
+            operational_mode = config.get("operational_mode", "blacklist")
+
+            if "targets" in config:
+                targets_to_throttle = config["targets"]
+            else:
+                targets_to_throttle = [{
+                    "ip":     config["target_ip"],
+                    "mac":    config["target_mac"],
+                    "vendor": config["target_vendor"],  
+                }]
+            used_saved = True
+        elif action == "new_scan":
+            operational_mode = prompt_operational_mode()
+    else:
+        console.print("[dim]No previous session found on this network.[/dim]\n")
+        operational_mode = prompt_operational_mode()
+
+
     if not used_saved:
-        print("\n" + "=" * 58)
-        print(f"  Target    : {target_ip} ({target_mac})")
-        print(f"  Vendor    : {target['vendor']}")
-        print(f"  Limit     : {limit_mbps} Mbps")
-        print(f"  Interface : {interface}")
-        print(f"  Router    : {router_ip}")
-        print("=" * 58)
+        if operational_mode == "blacklist" or operational_mode is None:
+            targets_to_throttle = prompt_blacklist_selection(devices)
+            target      = targets_to_throttle[0]
+            target_ip   = target["ip"] 
+            target_mac  = target["mac"] 
 
-        try:
-            confirm = input("\n  Proceed? (y/n): ").strip().lower()
-            if confirm == "":
-                print("\033[A  Proceed? (y/n): y")
-            elif confirm != "y":
-                print("  Cancelled.")
+        elif operational_mode == "whitelist":
+            safe_devices = prompt_whitelist_selection(devices)
+            safe_ips = [d["ip"] for d in safe_devices]
+            
+            targets_to_throttle = [d for d in devices if d["ip"] not in safe_ips]
+
+            if targets_to_throttle:
+                target      = targets_to_throttle[0]
+                target_ip   = target["ip"]
+                target_mac  = target["mac"]
+            else:
+                print("  [!] No targets to throttle. Everyone is whitelisted.")
                 sys.exit(0)
-        except KeyboardInterrupt:
-            sys.exit(0)
+                
+        limit_mbps = pick_limit(prompt)
+        
+    if not used_saved:
+        prompt_session_review(interface, router_ip, operational_mode, limit_mbps, targets_to_throttle)
 
-    print()
-
-    print()
-
-    # 6. Save config for next session
-    save_config(interface, router_ip, target_ip, target_mac, target["vendor"], limit_mbps)
-
-    # 7. Register cleanup handlers
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
-    atexit.register(lambda: (
-        cleanup_traffic_shaping(interface),
-        disable_ip_forward()
-    ))
 
-    # 8. Setup
-    enable_ip_forward()
-    setup_traffic_shaping(interface, target_ip, limit_mbps)
+    spoof_threads = []
+    success = False
 
-    # 9. ARP spoofing in background thread
-    spoof_thread = threading.Thread(
-        target=arp_spoof_loop,
-        args=(interface, target_ip, router_ip, stop_event),
-        daemon=True
-    )
-    spoof_thread.start()
+    # Try block encapsulates network manipulation to ensure teardown runs
+    try:
+        with console.status("[cyan]Initializing network routing...[/cyan]", spinner="dots") as status:
+            mode_display = operational_mode.capitalize() if operational_mode else "Blacklist"
+            status.update(f"[cyan]Saving {mode_display} config for {len(targets_to_throttle)} target(s) to config.json...[/cyan]")
+        
+            save_config(interface, router_ip, operational_mode, targets_to_throttle, limit_mbps, status=status)
+            time.sleep(0.8)
+            
+            status.update("[cyan]System: Forcing net.ipv4.ip_forward=1...[/cyan]")
+            enable_ip_forward()
+            time.sleep(0.8)
+            
+            status.update(f"[cyan]QoS: Attaching {limit_mbps} Mbps HTB rules to interface {interface}...[/cyan]")
+            setup_traffic_shaping(interface, targets_to_throttle, limit_mbps)
+                
+            time.sleep(0.8)
+            
+            status.update(f"[cyan]ARP: Injecting MITM routes between {len(targets_to_throttle)} target(s) and gateway {router_ip}...[/cyan]")
+            for tgt in targets_to_throttle:
+                t = threading.Thread(
+                    target=arp_spoof_loop,
+                    args=(interface, tgt["ip"], router_ip, stop_event),
+                    daemon=True
+                )
+                t.start()
+                spoof_threads.append(t)
+            time.sleep(0.8)
+            
+            success, captured_pkts = verify_spoofing(interface, stop_event, status=status)
+            
+            if not success:
+                stop_event.set()
 
-    # 10. Verify spoofing in background thread
-    verify_thread = threading.Thread(
-        target=verify_spoofing,
-        args=(interface, stop_event),
-        daemon=True
-    )
-    verify_thread.start()
+        if success:
+            console.print(f"  [success]Spoofing successful! {captured_pkts} packets captured. Launching live monitor...[/success]")
+            time.sleep(1.5)
 
-    # 11. Realtime monitor in background thread
-    monitor_thread = threading.Thread(
-        target=live_monitor,
-        args=(interface, target_ip, limit_mbps, stop_event),
-        daemon=True
-    )
-    monitor_thread.start()
+            monitor_thread = threading.Thread(
+                target=live_monitor,
+                args=(interface, targets_to_throttle, limit_mbps, stop_event),
+                daemon=True
+            )
+            monitor_thread.start()
+        else:
+            console.print("  [error]✗ Target device does not appear to be using the network. Stopping...[/error]")
 
-    log.info("Running. Press Ctrl+C to stop and restore target connection.")
+        try:
+            while not stop_event.is_set():
+                stop_event.wait(0.1)
+        except KeyboardInterrupt:
+            stop_event.set()
 
-    # 12. Wait for stop signal
-    stop_event.wait()
+        if success and 'monitor_thread' in locals():
+            monitor_thread.join(timeout=2)
 
-    # 13. Cleanup
-    spoof_thread.join(timeout=5)
-    cleanup_traffic_shaping(interface)
-    disable_ip_forward()
+    finally:
+        # Guaranteed cleanup sequence
+        console.print()
+        with console.status("[yellow]Initiating teardown sequence...[/yellow]", spinner="dots") as status:
 
-    log.info("Done. Target connection restored.")
+            status.update(f"[yellow]Teardown: Terminating active ARP spoofing threads for {len(spoof_threads)} thread(s)...[/yellow]")
+            for t in spoof_threads:
+                t.join(timeout=5)
+            time.sleep(0.6)
+
+            status.update(f"[yellow]QoS: Flushing HTB shaping rules from interface {interface}...[/yellow]")
+            cleanup_traffic_shaping(interface)
+            time.sleep(0.6)
+
+            status.update("[yellow]System: Restoring net.ipv4.ip_forward=0...[/yellow]")
+            disable_ip_forward()
+            time.sleep(0.6)
+
+  
+        console.print("\n [error]Session terminated.[/error]")
+        console.print(" [success]Network restored and traffic shaping rules cleared.[/success]")
+
 
 
 if __name__ == "__main__":
