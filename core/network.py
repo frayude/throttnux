@@ -1,7 +1,10 @@
 import re
 import sys
+import time
 import logging
 import subprocess
+
+from core.console import console
 
 try:
     import psutil
@@ -10,6 +13,7 @@ except ImportError:
     print("        Please ensure you have initialized the project using: sudo ./setup.sh")
     print("        To execute Throttnux safely, run: sudo .venv/bin/python3 main.py")
     sys.exit(1)
+
 
 log = logging.getLogger("throttnux")
 
@@ -48,6 +52,18 @@ def get_active_interfaces():
             "speed": f"{stat.speed} Mbps" if stat.speed > 0 else "unknown speed"
         })
 
+    # =========================================================
+    # ⚠️ DUMMY 
+    # =========================================================
+    # interfaces.extend([
+    #     {"name": "eth0",    "ip": "192.168.1.10", "speed": "1000 Mbps"},
+    #     {"name": "docker0", "ip": "172.17.0.1",   "speed": "unknown speed"},
+    #     {"name": "tun0",    "ip": "10.8.0.2",     "speed": "10 Mbps"}
+    # ])
+    # =========================================================
+    # ⚠️ DUMMY DATA END
+    # =========================================================
+
     return interfaces
 
 
@@ -65,27 +81,45 @@ def get_gateways():
             gw_ip, iface = match.groups()
             gateways.append({"ip": gw_ip, "interface": iface})
 
+    # =========================================================
+    # ⚠️ DUMMY DATA START 
+    # =========================================================
+    # gateways.extend([
+    #     {"ip": "192.168.1.1", "interface": "eth0"},
+    #     {"ip": "172.17.0.1",  "interface": "docker0"},
+    #     {"ip": "10.8.0.1",    "interface": "tun0"}
+    # ])
+    # =========================================================
+    # ⚠️ DUMMY DATA END
+    # =========================================================
+
     return gateways
 
 
 def pick_interface(prompt_fn):
-    """Interactive interface picker."""
+    """Interactive interface picker with a sleek scanning spinner."""
+    with console.status("Scanning interfaces...", spinner="dots") as status:
+        time.sleep(1.2)
+        status.update("Filtering active interfaces...")
+        time.sleep(0.8)
+
     interfaces = get_active_interfaces()
 
     if not interfaces:
         log.error("No active network interfaces found.")
         sys.exit(1)
-
+    
+    console.print(f" [success]Found {len(interfaces)} active interface(s)[/success]")
+        
     if len(interfaces) == 1:
         iface = interfaces[0]
-        log.info(f"Auto-selected interface: {iface['name']} ({iface['ip']})")
+        console.print(f" [not bold white]Auto-selected interface: {iface['name']} ({iface['ip']})[/not bold white]")
         return iface["name"]
 
-    print("=" * 55)
+    print("")
     print("  Available network interfaces:")
-    print("=" * 55)
+    print("")
     print(f"  {'No':<5} {'Interface':<14} {'IP Address':<18} {'Speed'}")
-    print("  " + "-" * 50)
 
     for i, iface in enumerate(interfaces, 1):
         print(f"  {i:<5} {iface['name']:<14} {iface['ip']:<18} {iface['speed']}")
@@ -94,12 +128,12 @@ def pick_interface(prompt_fn):
 
     idx      = prompt_fn("\n  Select interface number: ", valid_range=len(interfaces))
     selected = interfaces[idx]
-    log.info(f"Selected interface: {selected['name']} ({selected['ip']})")
+    console.print(f"Selected interface: {selected['name']} ({selected['ip']})")
     return selected["name"]
 
 
 def pick_router(interface, prompt_fn):
-    """Interactive router/gateway picker, filtered by selected interface."""
+    """Interactive router/gateway picker with a routing query spinner."""
     gateways   = get_gateways()
     matched    = [g for g in gateways if g["interface"] == interface]
     candidates = matched if matched else gateways
@@ -110,8 +144,11 @@ def pick_router(interface, prompt_fn):
 
     if len(candidates) == 1:
         gw = candidates[0]["ip"]
-        log.info(f"Auto-selected gateway: {gw}")
+        console.print(f" [not bold white]Auto-selected gateway: {gw}[/not bold white]")
         return gw
+
+    with console.status("[bold cyan]Querying kernel routing table for available gateways...[/bold cyan]", spinner="dots"):
+        time.sleep(1.2)
 
     print("\n" + "=" * 55)
     print("  Available gateways (routers):")
@@ -126,5 +163,5 @@ def pick_router(interface, prompt_fn):
 
     idx      = prompt_fn("\n  Select gateway number: ", valid_range=len(candidates))
     selected = candidates[idx]["ip"]
-    log.info(f"Selected gateway: {selected}")
+    console.print(f"Selected gateway: {selected}")
     return selected
