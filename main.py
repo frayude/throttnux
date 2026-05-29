@@ -84,9 +84,6 @@ def main():
 
     interface  = None
     router_ip  = None
-    target_ip  = None
-    target_mac = None
-    target     = None
     limit_mbps = None
     used_saved = False
     targets_to_throttle = []
@@ -97,76 +94,63 @@ def main():
     config  = load_config()
     devices = scan_devices(interface, router_ip)
 
-    if config:
-        if "targets" in config:
-            last_ips = [t["ip"] for t in config["targets"]]
-        else:
-            last_ips = [config["target_ip"]] if config.get("target_ip") else []
+    # 1. Validate targets with live network data before rendering
+    matched_dev = match_saved_config(config, devices)
+    operational_mode = None
+    
+    if matched_dev:
+        last_ips = [d["ip"] for d in matched_dev]
         last_limit = config.get("limit_mbps")
     else:
         last_ips = []
         last_limit = None
     
+    # 2. Render UI table with accurate pointers
     display_devices(devices, last_ips=last_ips, last_limit_mbps=last_limit)
-
-    matched_dev = match_saved_config(config, devices)
-    operational_mode = None
     
-    if matched_dev and config["interface"] == interface and config["router_ip"] == router_ip:
-        action = prompt_use_saved_config(config)
+    if matched_dev and config.get("interface") == interface and config.get("router_ip") == router_ip:
+        action = prompt_use_saved_config(config, matched_dev)
 
         while action == "rescan":
             console.clear()
             console.print()
             
             devices = scan_devices(interface, router_ip, status_msg="Rescanning network, please wait...")
-            display_devices(devices, last_ips=last_ips, last_limit_mbps=last_limit)
-
+            
+            # Re-validate dynamically on rescan
             matched_dev = match_saved_config(config, devices)
             if matched_dev:
-                action = prompt_use_saved_config(config)
+                last_ips_rescan = [d["ip"] for d in matched_dev]
+                display_devices(devices, last_ips=last_ips_rescan, last_limit_mbps=last_limit)
+                action = prompt_use_saved_config(config, matched_dev)
             else:
+                display_devices(devices, last_ips=[], last_limit_mbps=None)
                 action = "new_scan"
                 break
         
         if action == "use_saved":
             limit_mbps = config["limit_mbps"]
             operational_mode = config.get("operational_mode", "blacklist")
-
-            if "targets" in config:
-                targets_to_throttle = config["targets"]
-            else:
-                targets_to_throttle = [{
-                    "ip":     config["target_ip"],
-                    "mac":    config["target_mac"],
-                    "vendor": config["target_vendor"],  
-                }]
+            targets_to_throttle = matched_dev
             used_saved = True
         elif action == "new_scan":
             operational_mode = prompt_operational_mode()
     else:
-        console.print("[dim]No previous session found on this network.[/dim]\n")
+        console.print(" [dim]No previous session found on this network.[/dim]\n")
         operational_mode = prompt_operational_mode()
 
 
     if not used_saved:
         if operational_mode == "blacklist" or operational_mode is None:
-            targets_to_throttle = prompt_blacklist_selection(devices)
-            target      = targets_to_throttle[0]
-            target_ip   = target["ip"] 
-            target_mac  = target["mac"] 
+            targets_to_throttle = prompt_blacklist_selection(devices, matched_dev)
 
         elif operational_mode == "whitelist":
-            safe_devices = prompt_whitelist_selection(devices)
+            safe_devices = prompt_whitelist_selection(devices, matched_dev)
             safe_ips = [d["ip"] for d in safe_devices]
             
             targets_to_throttle = [d for d in devices if d["ip"] not in safe_ips]
 
-            if targets_to_throttle:
-                target      = targets_to_throttle[0]
-                target_ip   = target["ip"]
-                target_mac  = target["mac"]
-            else:
+            if not targets_to_throttle:
                 print("  [!] No targets to throttle. Everyone is whitelisted.")
                 sys.exit(0)
                 
@@ -181,7 +165,6 @@ def main():
     spoof_threads = []
     success = False
 
-    # Try block encapsulates network manipulation to ensure teardown runs
     try:
         with console.status("[cyan]Initializing network routing...[/cyan]", spinner="dots") as status:
             mode_display = operational_mode.capitalize() if operational_mode else "Blacklist"
@@ -238,7 +221,6 @@ def main():
             monitor_thread.join(timeout=2)
 
     finally:
-        # Guaranteed cleanup sequence
         console.print()
         with console.status("[yellow]Initiating teardown sequence...[/yellow]", spinner="dots") as status:
 
@@ -255,10 +237,8 @@ def main():
             disable_ip_forward()
             time.sleep(0.6)
 
-  
         console.print("\n [error]Session terminated.[/error]")
         console.print(" [success]Network restored and traffic shaping rules cleared.[/success]")
-
 
 
 if __name__ == "__main__":

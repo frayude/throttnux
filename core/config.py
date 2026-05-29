@@ -60,17 +60,31 @@ def match_saved_config(config, devices):
     if not config:
         return None
     
-    saved_ips = []
-    if "targets" in config:
-        saved_ips = [t["ip"] for t in config["targets"]]
-    elif "target_ip" in config:
-        saved_ips = [config["target_ip"]]
+    saved_targets = config.get("targets", [])
+    if not saved_targets and "target_ip" in config:
+        saved_targets = [{
+            "ip": config.get("target_ip"),
+            "mac": config.get("target_mac", ""),
+            "vendor": config.get("target_vendor", "")
+        }]
     
-    matched = [d for d in devices if d["ip"] in saved_ips]
+    matched = []
+    for saved in saved_targets:
+        saved_mac = saved.get("mac", "").lower()
+        saved_ip = saved.get("ip")
+        
+        for d in devices:
+            if saved_mac and d["mac"].lower() == saved_mac:
+                matched.append(d)
+                break
+            elif not saved_mac and d["ip"] == saved_ip:
+                matched.append(d)
+                break
+                
     return matched if matched else None
     
     
-def prompt_use_saved_config(config):
+def prompt_use_saved_config(config, matched_devices):
     """Ask user if they want to use the saved config."""
     mode_str = config.get("operational_mode", "Blacklist").capitalize()
     limit = config.get("limit_mbps", 1.0)
@@ -78,35 +92,17 @@ def prompt_use_saved_config(config):
     console.print(f" [text]Last session : {mode_str} - {limit} Mbps[/text]")
     
    
-    ip_list = []
-    if "targets" in config:
-        ip_list = [tgt["ip"] for tgt in config["targets"]]
-    elif "target_ip" in config:
-        ip_list = [config["target_ip"]]
-        
-    
-    max_ip_len = max([len(ip) for ip in ip_list]) if ip_list else 0
-    
-    if "targets" in config:
-        for tgt in config["targets"]:
-            vendor = tgt.get("vendor", "Unknown")
+    if matched_devices:
+        max_ip_len = max([len(d["ip"]) for d in matched_devices])
+        for dev in matched_devices:
+            vendor = dev.get("vendor", "Unknown")
             if not vendor or "locally administered" in vendor.lower():
                 vendor = "Unknown"
             
             if len(vendor) > 25:
                 vendor = vendor[:25]
             
-            console.print(f"   [text]{tgt['ip']:<{max_ip_len}}  • {vendor}[/text]")
-            
-    elif "target_ip" in config:
-        vendor = config.get("target_vendor", "Unknown")
-        if not vendor or "locally administered" in vendor.lower():
-            vendor = "Unknown"
-            
-        if len(vendor) > 25:
-            vendor = vendor[:25] 
-            
-        console.print(f"    • {config['target_ip']:<{max_ip_len}}  ·  {vendor}")
+            console.print(f"   [text]{dev['ip']:<{max_ip_len}}  • {vendor}[/text]")
         
     console.print()
     
@@ -153,13 +149,27 @@ def prompt_operational_mode():
         sys.exit(0)
 
 
-def prompt_blacklist_selection(devices):
+def prompt_blacklist_selection(devices, default_targets=None):
+    if default_targets is None:
+        default_targets = []
+        
+    default_macs = [t.get("mac", "").lower() for t in default_targets]
+    
     choices = []
+    initial_focus = None
+    
     for dev in devices:
         display_line = f"{dev['ip']:<15} · {dev['mac']:<19} · {dev['vendor'][:25]}"
-        choices.append(
-            questionary.Choice(title=display_line, value=dev)
-        )
+        is_checked = dev["mac"].lower() in default_macs
+        
+        choice = questionary.Choice(title=display_line, value=dev, checked=is_checked)
+        choices.append(choice)
+        
+        if is_checked and initial_focus is None:
+            initial_focus = choice
+
+    if initial_focus is None and choices:
+        initial_focus = choices[0]
     
     try:
         answer = questionary.checkbox(
@@ -167,11 +177,11 @@ def prompt_blacklist_selection(devices):
             qmark="",
             instruction="(Space to select, Enter to confirm)",
             choices=choices,
+            initial_choice=initial_focus,
             style=custom_style,
             pointer=">",
         ).ask()
         
-
         if not answer:
             console.print(" [bold red]✗ Cancelled.[/bold red] No devices selected.")
             sys.exit(0)
@@ -183,13 +193,27 @@ def prompt_blacklist_selection(devices):
         sys.exit(0)
 
 
-def prompt_whitelist_selection(devices):
+def prompt_whitelist_selection(devices, default_targets=None):
+    if default_targets is None:
+        default_targets = []
+        
+    default_macs = [t.get("mac", "").lower() for t in default_targets]
+    
     choices = []
+    initial_focus = None
+    
     for dev in devices:
-        display_line = f"{dev["ip"]:<15} · {dev["mac"]:<19} · {dev["vendor"]}"
-        choices.append(
-            questionary.Choice(title=display_line, value=dev)
-        )
+        display_line = f"{dev['ip']:<15} · {dev['mac']:<19} · {dev['vendor']}"
+        is_checked = dev["mac"].lower() in default_macs
+        
+        choice = questionary.Choice(title=display_line, value=dev, checked=is_checked)
+        choices.append(choice)
+        
+        if is_checked and initial_focus is None:
+            initial_focus = choice
+
+    if initial_focus is None and choices:
+        initial_focus = choices[0]
     
     try:
         answer = questionary.checkbox(
@@ -197,6 +221,7 @@ def prompt_whitelist_selection(devices):
             qmark="",
             instruction="(Space to select, Enter to confirm)",
             choices=choices,
+            initial_choice=initial_focus,
             style=custom_style
         ).ask()
 
