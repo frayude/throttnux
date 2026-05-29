@@ -199,7 +199,7 @@ def main():
                 stop_event.set()
 
         if success:
-            console.print(f"  [success]Spoofing successful! {captured_pkts} packets captured. Launching live monitor...[/success]")
+            console.print(f" [success]Spoofing successful! {captured_pkts} packets captured. Launching live monitor...[/success]")
             time.sleep(1.5)
 
             monitor_thread = threading.Thread(
@@ -209,7 +209,7 @@ def main():
             )
             monitor_thread.start()
         else:
-            console.print("  [error]✗ Target device does not appear to be using the network. Stopping...[/error]")
+            console.print("  [error]Target device does not appear to be using the network. Stopping...[/error]")
 
         try:
             while not stop_event.is_set():

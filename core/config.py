@@ -140,12 +140,13 @@ def prompt_operational_mode():
             )
 
         if answer is None:
+            console.print(" [error]Cancelled.[/error]")
             sys.exit(0)
         
         return answer
 
     except KeyboardInterrupt:
-        console.print("[bold red]✗[/bold red] Cancelled.")
+        console.print(" [error]Cancelled.[/error]")
         sys.exit(0)
 
 
@@ -183,13 +184,13 @@ def prompt_blacklist_selection(devices, default_targets=None):
         ).ask()
         
         if not answer:
-            console.print(" [bold red]✗ Cancelled.[/bold red] No devices selected.")
+            console.print(" [error]Cancelled. No devices selected.[/error]")
             sys.exit(0)
         
         return answer
     
     except KeyboardInterrupt:
-        console.print("\n [bold red]✗ Cancelled.[/bold red]")
+        console.print("\n [error]Cancelled.[/error]")
         sys.exit(0)
 
 
@@ -226,7 +227,7 @@ def prompt_whitelist_selection(devices, default_targets=None):
         ).ask()
 
         if not answer:
-            console.print(" [bold red]✗ Cancelled.[/bold red] No devices selected.")
+            console.print(" bold red]✗ Cancelled.[/bold red] No devices selected.")
             sys.exit(0)
         
         return answer

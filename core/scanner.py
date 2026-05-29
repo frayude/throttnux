@@ -57,7 +57,7 @@ def scan_devices(interface, router_ip, status_msg="Scanning network for active d
 def display_devices(devices, last_ips=None, last_limit_mbps=None):
     """Display device table."""
     if not devices:
-        console.print("No devices found on the network.")
+        console.print(" [error]No devices found on the network.[/error]")
         sys.exit(1)
 
     table = Table(box=box.HORIZONTALS, title_style="bold", show_header=True)
@@ -83,35 +83,6 @@ def display_devices(devices, last_ips=None, last_limit_mbps=None):
         table.add_row(indicator, ip_cell, dev["mac"], vendor)
     
     console.print(table)
-
-
-def pick_target(devices, prompt_fn=None):
-    """Display device list and prompt user to pick a target."""
-    if not devices:
-        log.error("No devices found on the network.")
-        sys.exit(1)
-    
-    print("\n  Select Devices to throttle:")
-    print(f"  {'IP Address':<16} {'MAC Address':<20} {'Vendor'}")
-    
-    choices = []
-    for dev in devices:
-        label = f"{dev['ip']:<16} {dev['mac']:<20} {dev['vendor'][:22]}"
-        choices.append(questionary.Choice(label, value=dev))
-
-    target = questionary.select(
-        "",
-        instruction="",
-        choices=choices,
-        style=custom_style,
-        qmark="",
-    ).ask()
-
-    if target is None:
-        print("\n  Cancelled.")
-        sys.exit(0)
-
-    return target
 
 
 def pick_limit(prompt_fn=None):
