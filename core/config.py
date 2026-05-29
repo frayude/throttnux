@@ -225,13 +225,14 @@ def prompt_whitelist_selection(devices, default_targets=None):
             style=custom_style
         ).ask()
 
-        if answer is None:
+        if not answer:
+            console.print(" [bold red]✗ Cancelled.[/bold red] No devices selected.")
             sys.exit(0)
         
         return answer
     
     except KeyboardInterrupt:
-        print("\n Cancelled.")
+        console.print("\n [bold red]✗ Cancelled.[/bold red]")
         sys.exit(0)
 
 
