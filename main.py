@@ -201,7 +201,7 @@ def main():
         if success:
             console.print(f" [success]Spoofing successful! {captured_pkts} packets captured. Launching live monitor...[/success]")
             time.sleep(1.5)
-
+            console.print()
             monitor_thread = threading.Thread(
                 target=live_monitor,
                 args=(interface, targets_to_throttle, limit_mbps, stop_event),
@@ -221,7 +221,6 @@ def main():
             monitor_thread.join(timeout=2)
 
     finally:
-        console.print()
         with console.status("[yellow]Initiating teardown sequence...[/yellow]", spinner="dots") as status:
 
             status.update(f"[yellow]Teardown: Terminating active ARP spoofing threads for {len(spoof_threads)} thread(s)...[/yellow]")

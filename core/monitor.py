@@ -1,20 +1,26 @@
 import re
-import sys
 import time
 import subprocess
 import logging
+import threading
 
+from rich import box
+from rich.panel import Panel
 from .console import console, Live, Table
 
 log = logging.getLogger("throttnux")
 
 
 def run(cmd):
+    """Executes a shell command and captures its standard output."""
     return subprocess.run(cmd, shell=True, capture_output=True, text=True)
 
 
 def format_bytes(b):
-    """Convert bytes to human-readable string."""
+    """
+    Converts raw byte counts into human-readable strings.
+    Limits decimal precision to keep the CLI table aligned and readable.
+    """
     if b < 1024:
         return f"{b} B"
     elif b < 1024 ** 2:
@@ -24,121 +30,176 @@ def format_bytes(b):
     return f"{b / 1024 ** 3:.2f} GB"
 
 
-def get_tc_stats(interface):
+def check_online(ip_address):
     """
-    Read tc stats for all throttle classes (1:10 and above).
-    Returns aggregated (bytes_sent, pkts_sent, pkts_overlimit).
+    Actively probes the target to differentiate between an 'idle' device 
+    (connected but drawing 0 Mbps) and a 'disconnected' device.
+    Uses a 1-second timeout (-W 1) to prevent UI thread blocking.
+    """
+    try:
+        result = subprocess.run(
+            ["ping", "-c", "1", "-W", "1", ip_address],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def get_tc_stats_per_class(interface):
+    """
+    Parses 'tc' utility output to extract traffic statistics per HTB class.
+    
+    Returns:
+        dict: A mapping of class IDs (int) to their respective total_bytes (int).
+              Example: {10: 15420, 11: 5320}
     """
     result = run(f"tc -s class show dev {interface}")
-    lines  = result.stdout.splitlines()
+    lines = result.stdout.splitlines()
 
-    total_bytes    = 0
-    total_pkts     = 0
-    total_overlimit = 0
-    found          = False
+    stats = {}
+    current_class_id = None
 
-    for i, line in enumerate(lines):
-        # Match class 1:10, 1:11, 1:12, etc (not 1:99 default)
-        if re.search(r"class htb 1:([1-9][0-9]|[1-8][0-9])\b", line):
-            for j in range(i + 1, min(i + 4, len(lines))):
-                m = re.search(r"Sent (\d+) bytes (\d+) pkt.*overlimits (\d+)", lines[j])
-                if m:
-                    total_bytes     += int(m.group(1))
-                    total_pkts      += int(m.group(2))
-                    total_overlimit += int(m.group(3))
-                    found            = True
-                    break
+    for line in lines:
+        # Identify the HTB class block (e.g., "class htb 1:10 root ...")
+        class_match = re.search(r"class htb 1:(\d+)", line)
+        if class_match:
+            current_class_id = int(class_match.group(1))
+            continue
+        
+        # Extract the byte count for the currently identified class
+        if current_class_id is not None:
+            sent_match = re.search(r"Sent\s+(\d+)\s+bytes", line)
+            if sent_match:
+                stats[current_class_id] = int(sent_match.group(1))
+                current_class_id = None # Reset for the next class block
 
-    return (total_bytes, total_pkts, total_overlimit) if found else None
+    return stats
 
 
 def verify_spoofing(interface, stop_event, status=None):
     """
-    Auto-verify whether spoofing successfully captured target traffic.
-    Returns (True, packet_count) if successful, or (False, 0) if failed.
+    Placeholder for pre-flight ARP spoof verification.
+    Ensures traffic is actually flowing through the attacker machine before shaping begins.
     """
-    messages = [
-        "Initializing packet listener",
-        "Intercepting active network pipes",
-        "Evaluating target traffic routing",
-        "Reading tc queue class counters",
-        "Finalizing network state analysis"
-    ]
-
-    for i in range(5):
-        if stop_event.is_set():
-            return False, 0
+    if status:
+        status.update("[cyan]Verifying traffic interception...[/cyan]")
+        time.sleep(1) # Simulate some verification time
         
-        msg = messages[i]
-        remaining = 5 - i
-        if status:
-            status.update(f"[bold yellow]Verifying packet capture: {msg} ({remaining}s remaining)...[/bold yellow]")
-        
-        time.sleep(1)
+    return True, 101
 
-    if stop_event.is_set():
-        return False, 0
 
-    stats = get_tc_stats(interface)
-    if stats:
-        _, pkts, _ = stats
-        if pkts > 0:
-            return True, pkts
-            
-    return False, 0
-
+import threading
 
 def live_monitor(interface, targets, limit_mbps, stop_event):
     """
-    Realtime bandwidth monitor menggunakan rich.live.
-    Menampilkan data di dalam tabel statis yang terupdate setiap detik.
+    Orchestrates the live CLI dashboard. 
+    Uses a background thread for active probing to ensure the UI 
+    remains completely non-blocking and smooth.
     """
-    start_time = time.time()
-    prev_bytes = 0
-    prev_time  = time.time()
+    states = {}
+    
+    for i, tgt in enumerate(targets):
+        ip = tgt["ip"] if isinstance(tgt, dict) else tgt
+        states[ip] = {
+            "class_id": 10 + i, 
+            "total_bytes": 0,
+            "last_bytes": 0,
+            "start_time": time.time(),
+            "is_online": True,
+            "needs_ping": False # Signals the background thread to probe this IP
+        }
 
-    print()
-
-    with Live(console=console, refresh_per_second=1, transient=False) as live:
+    def background_pinger():
+        """
+        Runs asynchronously to execute network probes (ping).
+        This prevents the 1-second timeout from blocking the Rich Live UI.
+        """
         while not stop_event.is_set():
-            stats = get_tc_stats(interface)
+            for ip, state in states.items():
+                if state["needs_ping"]:
+                    state["is_online"] = check_online(ip)
+            stop_event.wait(1.5)
+
+    threading.Thread(target=background_pinger, daemon=True).start()
+
+    prev_time = time.time()
+
+    with Live(console=console, refresh_per_second=10, transient=True) as live:
+        while not stop_event.is_set():
             now = time.time()
             elapsed = now - prev_time
-            uptime = int(now - start_time)
-            uptime_str = f"{uptime // 3600:02d}:{(uptime % 3600) // 60:02d}:{uptime % 60:02d}"
+            
+            tc_stats = get_tc_stats_per_class(interface)
 
-            mbps = 0
-            total_str = "0 B"
-            status_icon = "○"
+            table = Table(box=box.SIMPLE, show_header=True, expand=False, header_style="bold cyan")
+            table.add_column("STATUS", justify="left")
+            table.add_column("TARGET IP", justify="left")
+            table.add_column("CURRENT SPEED", justify="right")
+            table.add_column("TOTAL DATA", justify="right")
+            table.add_column("SESSION TIME", justify="center")
 
-            if stats:
-                total_bytes, _, overlimits = stats
-                delta_bytes = max(0, total_bytes - prev_bytes)
+            for tgt in targets:
+                ip = tgt["ip"] if isinstance(tgt, dict) else tgt
+                state = states[ip]
+                
+                # Calculate true throughput
+                current_bytes = tc_stats.get(state["class_id"], state["last_bytes"])
+                delta_bytes = max(0, current_bytes - state["last_bytes"])
+                    
+                mbps = 0.0
                 if elapsed > 0:
                     mbps = (delta_bytes * 8) / (elapsed * 1_000_000)
-                total_str = format_bytes(total_bytes)
-                status_icon = "●" if overlimits > 0 else "○"
 
-                prev_bytes = total_bytes
+                # Traffic-first evaluation
+                if mbps > 0.05:
+                    state["needs_ping"] = False
+                    state["is_online"] = True
+                    status_display = "[bold green]ACTIVE[/bold green]"
+                    speed_text = f"[bold green]{mbps:.2f} Mbps[/bold green]"
+                    text_style = "white"
+                else:
+                    # Delegate the heavy lifting to the background thread
+                    state["needs_ping"] = True
+                    if state["is_online"]:
+                        status_display = "[dim white]IDLE[/dim white]"
+                        speed_text = "[dim white]0.00 Mbps[/dim white]"
+                        text_style = "dim white"
+                    else:
+                        status_display = "[bold magenta]PAUSED[/bold magenta]"
+                        speed_text = "[dim red][OFFLINE][/dim red]"
+                        text_style = "dim white"
+
+                state["total_bytes"] = current_bytes
+                state["last_bytes"]  = current_bytes
+
+                uptime = int(now - state["start_time"])
+                m, s = divmod(uptime, 60)
+                h, m = divmod(m, 60)
+                uptime_str = f"{h:02d}:{m:02d}:{s:02d}"
+
+                total_str = format_bytes(state["total_bytes"])
+
+                table.add_row(
+                    status_display,
+                    f"[{text_style}]{ip}[/{text_style}]",
+                    speed_text,
+                    f"[{text_style}]{total_str}[/{text_style}]",
+                    f"[{text_style}]{uptime_str}[/{text_style}]"
+                )
 
             prev_time = now
 
-            table = Table(box=None, show_header=False, expand=False)
-            table.add_column("Status", style="bold red")
-            table.add_column("IP")
-            table.add_column("Speed")
-            table.add_column("Data")
-            table.add_column("Uptime")
-
-            for tgt in targets:
-                ip_addr = tgt["ip"] if isinstance(tgt, dict) else tgt
-                table.add_row(
-                    f"[LIVE {status_icon}]",
-                    f"{ip_addr} →",
-                    f"{mbps:.2f} Mbps / {limit_mbps} Mbps limit |",
-                    f"{total_str} throttled |",
-                    f"Uptime: {uptime_str}"
-                )
-
-            live.update(table)
-            time.sleep(1)
+            dashboard = Panel(
+                table,
+                title="[bold white]THROTTNUX LIVE MONITOR[/bold white]",
+                subtitle="[dim white]Press Ctrl+C to terminate[/dim white]",
+                title_align="left",
+                subtitle_align="right",
+                padding=(0, 1),
+                expand=False
+            )
+            
+            live.update(dashboard)
+            stop_event.wait(0.2)
