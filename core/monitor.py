@@ -126,7 +126,7 @@ def live_monitor(interface, targets, limit_mbps, stop_event):
 
     prev_time = time.time()
 
-    with Live(console=console, refresh_per_second=10, transient=True) as live:
+    with Live(console=console, refresh_per_second=10) as live:
         while not stop_event.is_set():
             now = time.time()
             elapsed = now - prev_time
