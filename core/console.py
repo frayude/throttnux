@@ -37,4 +37,4 @@ def qselect(message, choices, **kwargs):
         style=custom_style,
         pointer=">",
         **kwargs
-    ).ask()
+    ).ask(kbi_msg="")
