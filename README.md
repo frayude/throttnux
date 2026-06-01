@@ -95,12 +95,6 @@ The `[LIVE]` line updates in-place every second. Status indicators:
 
 `○` idle or spoofing not yet effective
 
-## Stopping
-
-Press `Ctrl+C` at any time. Throttnux will automatically stop ARP spoofing, remove all traffic shaping rules, restore the target device's full connection, and disable IP forwarding.
-
-An emergency cleanup also runs if the script exits unexpectedly.
-
 ## Limitations
 
 **The host machine must remain on and connected** for throttling to stay active. This is a fundamental limitation of ARP spoofing. ARP tables refresh periodically, so the spoofing process must run continuously.
