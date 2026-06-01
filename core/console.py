@@ -10,7 +10,7 @@ from rich import box
 
 custom_style = questionary.Style([
     ("question",    "white nobold"),
-    ("answer",      "fg:green"),
+    ('answer',      'green'), 
     ("selected",    "fg:default bg:default noreverse"),
 ])
 
