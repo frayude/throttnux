@@ -88,8 +88,8 @@ def main():
     used_saved = False
     targets_to_throttle = []
     
-    interface = pick_interface(prompt)
-    router_ip = pick_router(interface, prompt)
+    interface = pick_interface()
+    router_ip = pick_router(interface)
 
     config  = load_config()
     devices = scan_devices(interface, router_ip)

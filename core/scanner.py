@@ -99,7 +99,7 @@ def pick_limit(prompt_fn=None):
         )
     
     if choice is None:
-        console.print("\n[red]✗[/red] Operation cancelled by user.")
+        console.print(" [error]Cancelled by user.[/error]")
         sys.exit(0)
         
     presets = {"1": 1.0, "2": 2.0, "3": 3.0}
@@ -131,5 +131,5 @@ def pick_limit(prompt_fn=None):
             except ValueError:
                 console.print("  [red][!][/red] Invalid input. Please enter a valid decimal number.")
             except KeyboardInterrupt:
-                console.print("\n[red]✗[/red] Operation cancelled.")
+                console.print(" [error]Cancelled by user.[/error]")
                 sys.exit(0)

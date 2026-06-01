@@ -1,18 +1,10 @@
 import re
 import sys
-import time
 import logging
 import subprocess
+import psutil
 
-from core.console import console
-
-try:
-    import psutil
-except ImportError:
-    print("[ERROR] Environment configuration unfulfilled.")
-    print("        Please ensure you have initialized the project using: sudo ./setup.sh")
-    print("        To execute Throttnux safely, run: sudo .venv/bin/python3 main.py")
-    sys.exit(1)
+from core.console import console, questionary, qselect
 
 
 log = logging.getLogger("throttnux")
@@ -23,46 +15,25 @@ def run(cmd):
 
 
 def get_active_interfaces():
-    """
-    Return list of active non-loopback interfaces with an assigned IP,
-    using psutil — works across all Linux distros.
-    """
     interfaces = []
     stats = psutil.net_if_stats()
     addrs = psutil.net_if_addrs()
 
     for iface, stat in stats.items():
-        if iface == "lo":
-            continue
-        if not stat.isup:
-            continue
-        if iface not in addrs:
+        if iface == "lo" or not stat.isup or iface not in addrs:
             continue
 
-        ipv4 = [
-            a.address for a in addrs[iface]
-            if a.family.name == "AF_INET"
-        ]
-        if not ipv4:
+        ipv4 = [a.address for a in addrs[iface] if a.family.name == "AF_INET"]
+        mac  = [a.address for a in addrs[iface] if a.family.name == "AF_PACKET"]
+        
+        if not ipv4 or not mac:
             continue
 
         interfaces.append({
             "name":  iface,
             "ip":    ipv4[0],
-            "speed": f"{stat.speed} Mbps" if stat.speed > 0 else "unknown speed"
+            "mac":   mac[0].lower()
         })
-
-    # =========================================================
-    # ⚠️ DUMMY 
-    # =========================================================
-    # interfaces.extend([
-    #     {"name": "eth0",    "ip": "192.168.1.10", "speed": "1000 Mbps"},
-    #     {"name": "docker0", "ip": "172.17.0.1",   "speed": "unknown speed"},
-    #     {"name": "tun0",    "ip": "10.8.0.2",     "speed": "10 Mbps"}
-    # ])
-    # =========================================================
-    # ⚠️ DUMMY DATA END
-    # =========================================================
 
     return interfaces
 
@@ -81,87 +52,74 @@ def get_gateways():
             gw_ip, iface = match.groups()
             gateways.append({"ip": gw_ip, "interface": iface})
 
-    # =========================================================
-    # ⚠️ DUMMY DATA START 
-    # =========================================================
-    # gateways.extend([
-    #     {"ip": "192.168.1.1", "interface": "eth0"},
-    #     {"ip": "172.17.0.1",  "interface": "docker0"},
-    #     {"ip": "10.8.0.1",    "interface": "tun0"}
-    # ])
-    # =========================================================
-    # ⚠️ DUMMY DATA END
-    # =========================================================
-
     return gateways
 
 
-def pick_interface(prompt_fn):
-    """Interactive interface picker with a sleek scanning spinner."""
-    with console.status("Scanning interfaces...", spinner="dots") as status:
-        time.sleep(1.2)
-        status.update("Filtering active interfaces...")
-        time.sleep(0.8)
-
+def pick_interface():
     interfaces = get_active_interfaces()
-
+    
     if not interfaces:
-        log.error("No active network interfaces found.")
+        console.print(" [error]No active network interfaces found.[/error]")
         sys.exit(1)
     
     console.print(f" [success]Found {len(interfaces)} active interface(s)[/success]")
         
     if len(interfaces) == 1:
         iface = interfaces[0]
-        console.print(f" [not bold white]Auto-selected interface: {iface['name']} ({iface['ip']})[/not bold white]")
+        console.print(f" [text]Auto-selected interface: {iface['name']} ({iface['ip']})[/text]")
         return iface["name"]
 
-    print("")
-    print("  Available network interfaces:")
-    print("")
-    print(f"  {'No':<5} {'Interface':<14} {'IP Address':<18} {'Speed'}")
+    choices = []
+    
+    for iface in interfaces:
+        display_line = f"{iface['name']:<12} {iface['ip']:<16} {iface['mac']}"
+        choices.append(questionary.Choice(title=display_line, value=iface["name"]))
+    
+    selected_name = qselect(
+        "Select network interface:",
+        choices=choices
+    )
 
-    for i, iface in enumerate(interfaces, 1):
-        print(f"  {i:<5} {iface['name']:<14} {iface['ip']:<18} {iface['speed']}")
+    if selected_name is None:
+        console.print(" [error]Cancelled by user.[/error]")
+        sys.exit(0)
 
-    print("=" * 55)
+    selected_iface = next(i for i in interfaces if i["name"] == selected_name)
+    console.print(f" [text]Selected interface: {selected_iface['name']}[/text]")
+    
+    return selected_name
+        
 
-    idx      = prompt_fn("\n  Select interface number: ", valid_range=len(interfaces))
-    selected = interfaces[idx]
-    console.print(f"Selected interface: {selected['name']} ({selected['ip']})")
-    return selected["name"]
-
-
-def pick_router(interface, prompt_fn):
-    """Interactive router/gateway picker with a routing query spinner."""
+def pick_router(interface):
+    """router/gateway picker matching the pick_interface style."""
     gateways   = get_gateways()
     matched    = [g for g in gateways if g["interface"] == interface]
     candidates = matched if matched else gateways
 
     if not candidates:
-        log.error("No gateway detected. Make sure you are connected to a network.")
+        console.print(" [error]No gateway detected. Make sure you are connected to a network.[/error]")
         sys.exit(1)
 
     if len(candidates) == 1:
         gw = candidates[0]["ip"]
-        console.print(f" [not bold white]Auto-selected gateway: {gw}[/not bold white]")
+        console.print(f" [text]Auto-selected gateway: {gw}[/text]")
         return gw
 
-    with console.status("[bold cyan]Querying kernel routing table for available gateways...[/bold cyan]", spinner="dots"):
-        time.sleep(1.2)
+    choices = []
+    
+    for gw in candidates:
+        display_line = f"{gw['ip']:<18} {gw['interface']}"
+        choices.append(questionary.Choice(title=display_line, value=gw["ip"]))
+    
+    selected_gw = qselect(
+        "Select gateway router:",
+        choices=choices
+    )
 
-    print("\n" + "=" * 55)
-    print("  Available gateways (routers):")
-    print("=" * 55)
-    print(f"  {'No':<5} {'Gateway IP':<18} {'Interface'}")
-    print("  " + "-" * 40)
+    if selected_gw is None:
+        console.print(" [error]Cancelled by user.[/error]")
+        sys.exit(0)
 
-    for i, gw in enumerate(candidates, 1):
-        print(f"  {i:<5} {gw['ip']:<18} {gw['interface']}")
-
-    print("=" * 55)
-
-    idx      = prompt_fn("\n  Select gateway number: ", valid_range=len(candidates))
-    selected = candidates[idx]["ip"]
-    console.print(f"Selected gateway: {selected}")
-    return selected
+    console.print(f" [text]Selected gateway: {selected_gw}[/text]")
+    
+    return selected_gw

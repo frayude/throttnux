@@ -117,9 +117,7 @@ def prompt_use_saved_config(config, matched_devices):
     )
  
     if answer is None:
-        sys.stdout.write("\033[A\033[2K" * 3)
-        sys.stdout.flush()
-        console.print(" [error]Cancelled.[/error]")
+        console.print(" [error]Cancelled by user.[/error]")
         sys.exit(0)
 
     if answer == "exit":
@@ -140,7 +138,7 @@ def prompt_operational_mode():
             )
 
         if answer is None:
-            console.print(" [error]Cancelled.[/error]")
+            console.print(" [error]Cancelled by user.[/error]")
             sys.exit(0)
         
         return answer
@@ -190,7 +188,7 @@ def prompt_blacklist_selection(devices, default_targets=None):
         return answer
     
     except KeyboardInterrupt:
-        console.print("\n [error]Cancelled.[/error]")
+        console.print(" [error]Cancelled by user.[/error]")
         sys.exit(0)
 
 
@@ -227,13 +225,13 @@ def prompt_whitelist_selection(devices, default_targets=None):
         ).ask()
 
         if not answer:
-            console.print(" bold red]✗ Cancelled.[/bold red] No devices selected.")
+            console.print(" [error]Cancelled. No devices selected.[/error]")
             sys.exit(0)
         
         return answer
     
     except KeyboardInterrupt:
-        console.print("\n [bold red]✗ Cancelled.[/bold red]")
+        console.print(" [error]Cancelled by user.[/error]")
         sys.exit(0)
 
 
@@ -290,21 +288,15 @@ def prompt_session_review(interface, router_ip, mode, limit_mbps, targets):
         ).ask()
         
         if confirm is None:
-            sys.stdout.write("\033[A\033[2K" * 2) 
-            sys.stdout.flush()
-            console.print("  [red]✗[/red] Cancelled.")
+            console.print(" [error]Cancelled by user.[/error]")
             sys.exit(0)
         
         if not confirm:
-            sys.stdout.write("\033[A\033[2K")
-            sys.stdout.flush()
-            console.print("  [red]✗[/red] Cancelled.")
+            console.print(" [error]Cancelled by user.[/error]")
             sys.exit(0)
 
         return confirm
 
     except KeyboardInterrupt:
-        sys.stdout.write("\033[A\033[2K" * 2)
-        sys.stdout.flush()
-        console.print("  [red]✗[/red] Cancelled.")
+        console.print(" [error]Cancelled by user.[/error]")
         sys.exit(0)
