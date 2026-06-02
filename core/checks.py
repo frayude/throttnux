@@ -3,21 +3,23 @@ import sys
 import shutil
 import logging
 
+from .console import console
+
 log = logging.getLogger("throttnux")
 
 REQUIRED_TOOLS = ["arpspoof", "tc", "arp-scan"]
 
 def check_os():
     if sys.platform != "linux":
-        log.error("Throttnux only supports Linux.")
-        log.error("Windows and macOS are not supported.")
+        console.print(" [error]Throttnux only supports Linux.[/error]")
+        console.print(" [error]Windows and macOS are not supported.[/error]")
         sys.exit(1)
 
 
 def check_root():
     if os.geteuid() != 0:
-        log.error("This script must be run as root.")
-        log.error("Try: sudo throttnux")
+        console.print(f" [error]This script must be run as root.[/error]")
+        console.print(f" [error]Try: sudo throttnux[/error]")
         sys.exit(1)
 
 
@@ -28,6 +30,6 @@ def check_dependencies():
             missing.append(tool)
 
     if missing:
-        log.error(f"Missing required core tools: {', '.join(missing)}")
-        log.error("Please install the missing tools using your system package manager (e.g., apt, dnf, pacman).")
+        console.print(f" [error]Missing required core tools: {', '.join(missing)}[/error]")
+        console.print(f" [error]Please install the missing tools using your system package manager (e.g., apt, dnf, pacman).[/error]")
         sys.exit(1)
