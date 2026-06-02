@@ -112,7 +112,7 @@ def pick_limit(prompt_fn=None):
                 console.print(
                 "[dim]"
                 "  • Enter bandwidth limit in Mbps\n"
-                "  • Use decimals (.) for values below 1 Mbps (e.g. 0.5, 0.1)\n"
+                "  • Use decimals (.) for values below 1 Mbps (e.g. 0.1, 0.10)\n"
                 "  • Recommended range: 0.5 - 20 Mbps\n"
                 "[/dim]"
                 )
@@ -120,13 +120,13 @@ def pick_limit(prompt_fn=None):
                 val = float(input("  Enter limit in Mbps: ").strip())
 
                 if val <= 0:
-                    console.print("  [red][!][/red] Limit must be greater than 0.0 Mbps.")
+                    console.print("  [error]Limit must be greater than 0.0 Mbps.[/error]")
                     continue
                 
                 return val
 
             except ValueError:
-                console.print("  [red][!][/red] Invalid input. Please enter a valid decimal number.")
+                console.print("  [error]Invalid input. Please enter a valid decimal number.[/error]")
             except KeyboardInterrupt:
                 console.print(" [error]Cancelled by user.[/error]")
                 sys.exit(0)

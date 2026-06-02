@@ -94,7 +94,7 @@ def verify_spoofing(interface, stop_event, status=None):
     """
     if status:
         status.update("Verifying traffic interception (timeout 5s)...")
-
+        time.sleep(5)
     for _ in range(5):
         if stop_event.is_set():
             return False, 0

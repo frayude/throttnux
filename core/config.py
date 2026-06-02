@@ -142,7 +142,7 @@ def prompt_operational_mode():
         return answer
 
     except KeyboardInterrupt:
-        console.print(" [error]Cancelled.[/error]")
+        console.print(" [error]Cancelled by user.[/error]")
         sys.exit(0)
 
 
@@ -260,7 +260,7 @@ def prompt_session_review(interface, router_ip, mode, limit_mbps, targets):
             
         mac = tgt.get("mac", "Unknown")
         
-        target_lines.append(f"• [white]{tgt['ip']:<{max_ip_len}}  {mac:<17}  {vendor}[/white]")
+        target_lines.append(f"[white]{tgt['ip']:<{max_ip_len}}  {mac:<17}  {vendor}[/white]")
     
     content_group = Group(
         summary_text,
