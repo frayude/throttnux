@@ -7,7 +7,6 @@ import ipaddress
 
 from .console import (
     console,
-    custom_style,
     Table,
     box,
     qselect
@@ -48,18 +47,16 @@ def scan_devices(interface, router_ip, status_msg="Scanning network for active d
         
         devices.sort(key=lambda dev:ipaddress.ip_address(dev["ip"]))
         
-        console.print(f" [success]Found {len(devices)} devices detected on network[/success]")
-
+        if not devices:
+            console.print(" [error]No devices found on the network.[/error]")
+            sys.exit(1)
+        else:
+            console.print(f" [success]Found {len(devices)} devices detected on network[/success]")
         
         return devices
 
 
 def display_devices(devices, last_ips=None, last_limit_mbps=None):
-    """Display device table."""
-    if not devices:
-        console.print(" [error]No devices found on the network.[/error]")
-        sys.exit(1)
-
     table = Table(box=box.HORIZONTALS, title_style="bold", show_header=True)
     table.add_column("",            width=1, no_wrap=True)
     table.add_column("IP Address",  style="")
@@ -91,9 +88,9 @@ def pick_limit(prompt_fn=None):
     choice = qselect(
         "Select bandwidth limit:",
         choices=[
-            questionary.Choice("1 Mbps  — Heavy buffering, no HD YouTube",  value="1"),
-            questionary.Choice("2 Mbps  — Stuck at 480p",                   value="2"),
-            questionary.Choice("3 Mbps  — Occasional buffering at 720p",    value="3"),
+            questionary.Choice("1 Mbps — Heavy buffering, no HD YouTube",  value="1"),
+            questionary.Choice("2 Mbps — Stuck at 480p",                   value="2"),
+            questionary.Choice("3 Mbps — Occasional buffering at 720p",    value="3"),
             questionary.Choice("Custom",                                    value="4")
             ]
         )

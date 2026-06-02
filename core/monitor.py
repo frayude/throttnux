@@ -93,7 +93,7 @@ def verify_spoofing(interface, stop_event, status=None):
     Returns (True, packet_count) if successful, (False, 0) if not.
     """
     if status:
-        status.update("[cyan]Verifying traffic interception (timeout 5s)...[/cyan]")
+        status.update("Verifying traffic interception (timeout 5s)...")
 
     for _ in range(5):
         if stop_event.is_set():
@@ -179,6 +179,7 @@ def live_monitor(interface, targets, limit_mbps, stop_event):
             )
             table.add_column("STATUS",        justify="left")
             table.add_column("TARGET IP",     justify="left")
+            table.add_column("LIMIT SPEED",     justify="right")
             table.add_column("CURRENT SPEED", justify="right")
             table.add_column("TOTAL DATA",    justify="right")
             table.add_column("SESSION TIME",  justify="center")
@@ -226,6 +227,7 @@ def live_monitor(interface, targets, limit_mbps, stop_event):
                     table.add_row(
                         status_display,
                         f"[{text_style}]{ip}[/{text_style}]",
+                        f"[{text_style}]{limit_mbps} Mbps[/{text_style}]",
                         speed_text,
                         f"[{text_style}]{total_str}[/{text_style}]",
                         f"[{text_style}]{uptime_str}[/{text_style}]",

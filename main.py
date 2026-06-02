@@ -166,23 +166,23 @@ def main():
     success = False
 
     try:
-        with console.status("[cyan]Initializing network routing...[/cyan]", spinner="dots") as status:
+        with console.status("Initializing network routing...", spinner="dots") as status:
             mode_display = operational_mode.capitalize() if operational_mode else "Blacklist"
-            status.update(f"[cyan]Saving {mode_display} config for {len(targets_to_throttle)} target(s) to config.json...[/cyan]")
+            status.update(f"Saving {mode_display} config for {len(targets_to_throttle)} target(s) to config.json...")
         
             save_config(interface, router_ip, operational_mode, targets_to_throttle, limit_mbps, status=status)
             time.sleep(0.8)
             
-            status.update("[cyan]System: Forcing net.ipv4.ip_forward=1...[/cyan]")
+            status.update("System: Forcing net.ipv4.ip_forward=1...")
             enable_ip_forward()
             time.sleep(0.8)
             
-            status.update(f"[cyan]QoS: Attaching {limit_mbps} Mbps HTB rules to interface {interface}...[/cyan]")
+            status.update(f"QoS: Attaching {limit_mbps} Mbps HTB rules to interface {interface}...")
             setup_traffic_shaping(interface, targets_to_throttle, limit_mbps)
                 
             time.sleep(0.8)
             
-            status.update(f"[cyan]ARP: Injecting MITM routes between {len(targets_to_throttle)} target(s) and gateway {router_ip}...[/cyan]")
+            status.update(f"ARP: Injecting MITM routes between {len(targets_to_throttle)} target(s) and gateway {router_ip}...")
             for tgt in targets_to_throttle:
                 t = threading.Thread(
                     target=arp_spoof_loop,
@@ -221,18 +221,18 @@ def main():
             monitor_thread.join(timeout=2)
 
     finally:
-        with console.status("[yellow]Initiating teardown sequence...[/yellow]", spinner="dots") as status:
+        with console.status("Initiating teardown sequence...", spinner="dots") as status:
 
-            status.update(f"[yellow]Teardown: Terminating active ARP spoofing threads for {len(spoof_threads)} thread(s)...[/yellow]")
+            status.update(f"Teardown: Terminating active ARP spoofing threads for {len(spoof_threads)} thread(s)...")
             for t in spoof_threads:
                 t.join(timeout=5)
             time.sleep(0.6)
 
-            status.update(f"[yellow]QoS: Flushing HTB shaping rules from interface {interface}...[/yellow]")
+            status.update(f"QoS: Flushing HTB shaping rules from interface {interface}...")
             cleanup_traffic_shaping(interface)
             time.sleep(0.6)
 
-            status.update("[yellow]System: Restoring net.ipv4.ip_forward=0...[/yellow]")
+            status.update("System: Restoring net.ipv4.ip_forward=0...")
             disable_ip_forward()
             time.sleep(0.6)
 

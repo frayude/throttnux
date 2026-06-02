@@ -33,8 +33,6 @@ def save_config(interface, router_ip, mode, targets, limit_mbps, status=None):
         
         if status:
             status.update(f"Config saved to {CONFIG_FILE}")
-        else:
-            status.update(f"Config saved to {CONFIG_FILE}")
             
     except Exception as e:
         log.warning(f"Failed to save config: {e}")
@@ -179,7 +177,7 @@ def prompt_blacklist_selection(devices, default_targets=None):
             initial_choice=initial_focus,
             style=custom_style,
             pointer=">",
-        ).ask()
+        ).ask(kbi_msg="")
         
         if not answer:
             console.print(" [error]Cancelled. No devices selected.[/error]")
@@ -222,7 +220,7 @@ def prompt_whitelist_selection(devices, default_targets=None):
             choices=choices,
             initial_choice=initial_focus,
             style=custom_style
-        ).ask()
+        ).ask(kbi_msg="")
 
         if not answer:
             console.print(" [error]Cancelled. No devices selected.[/error]")
@@ -285,11 +283,7 @@ def prompt_session_review(interface, router_ip, mode, limit_mbps, targets):
             default=True,
             style=custom_style,
             qmark=""
-        ).ask()
-        
-        if confirm is None:
-            console.print(" [error]Cancelled by user.[/error]")
-            sys.exit(0)
+        ).ask(kbi_msg="")
         
         if not confirm:
             console.print(" [error]Cancelled by user.[/error]")
