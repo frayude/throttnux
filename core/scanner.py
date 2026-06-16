@@ -56,9 +56,8 @@ def scan_devices(interface, router_ip, status_msg="Scanning network for active d
         return devices
 
 
-def display_devices(devices, last_ips=None, last_limit_mbps=None):
+def display_devices(devices, last_ips=None):
     table = Table(box=box.HORIZONTALS, title_style="bold", show_header=True)
-    table.add_column("",            width=1, no_wrap=True)
     table.add_column("IP Address",  style="")
     table.add_column("MAC Address", style="")
     table.add_column("Device",      style="")
@@ -68,16 +67,17 @@ def display_devices(devices, last_ips=None, last_limit_mbps=None):
     
     for dev in devices:
         is_last   = dev["ip"] in last_ips
-        indicator = "→" if is_last else " "
-        ip_cell   = f"[bold]{dev['ip']}[/bold]" if is_last else dev["ip"]
-
+        
         vendor = dev.get("vendor", "unknown")
-
         if len(vendor) > 25:
             vendor = vendor[:25]
         
-        
-        table.add_row(indicator, ip_cell, dev["mac"], vendor)
+        ip_cell     = f"[bold]{dev['ip']}[/bold]" if is_last else dev["ip"]
+        mac_cell    = f"[bold]{dev['mac']}[/bold]" if is_last else dev["mac"]
+        vendor_cell = f"[bold]{vendor}[/bold]" if is_last else vendor
+    
+        table.add_row(ip_cell, mac_cell, vendor_cell)
+      
     
     console.print(table)
 

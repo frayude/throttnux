@@ -105,8 +105,9 @@ def main():
         last_ips = []
         last_limit = None
     
-    # 2. Render UI table with accurate pointers
-    display_devices(devices, last_ips=last_ips, last_limit_mbps=last_limit)
+    # 2. Display devices UI with table 
+    display_devices(devices, last_ips=last_ips)
+    
     
     if matched_dev and config.get("interface") == interface and config.get("router_ip") == router_ip:
         action = prompt_use_saved_config(config, matched_dev)
@@ -201,7 +202,6 @@ def main():
         if success:
             console.print(f" [success]Spoofing successful! {captured_pkts} packets captured. Launching live monitor...[/success]")
             time.sleep(1.5)
-            console.print()
             monitor_thread = threading.Thread(
                 target=live_monitor,
                 args=(interface, targets_to_throttle, limit_mbps, stop_event),
@@ -209,7 +209,7 @@ def main():
             )
             monitor_thread.start()
         else:
-            console.print("  [error]Target device does not appear to be using the network. Stopping...[/error]")
+            console.print(" [error]Target device does not appear to be using the network. Stopping...[/error]")
 
         try:
             while not stop_event.is_set():
