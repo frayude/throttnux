@@ -56,8 +56,28 @@ def scan_devices(interface, router_ip, status_msg="Scanning network for active d
         return devices
 
 
-def display_devices(devices, last_ips=None):
-    table = Table(box=box.HORIZONTALS, title_style="bold", show_header=True)
+def display_devices(config, matched_devices, devices, last_ips=None):
+    mode_str = config.get("operational_mode", "Blacklist")
+    limit = config.get("limit_mbps", 1.0)
+    
+   
+    if matched_devices:
+        if len(matched_devices) == len(devices):
+            console.print(f" [success]Last session: all devices {mode_str} {limit} Mbps[/success]")
+        else:
+            console.print(f" [success]Last session: {len(matched_devices)} devices {mode_str} {limit} Mbps[/success]")
+            
+        
+        for dev in matched_devices:
+            vendor = dev.get("vendor", "Unknown")
+            if not vendor or "locally administered" in vendor.lower():
+                vendor = "Unknown"
+            
+            if len(vendor) > 25:
+                vendor = vendor[:25]
+            
+        
+    table = Table(box=box.SIMPLE, title_style="bold", show_header=True)
     table.add_column("IP Address",  style="")
     table.add_column("MAC Address", style="")
     table.add_column("Device",      style="")
@@ -72,9 +92,9 @@ def display_devices(devices, last_ips=None):
         if len(vendor) > 25:
             vendor = vendor[:25]
         
-        ip_cell     = f"[bold]{dev['ip']}[/bold]" if is_last else dev["ip"]
-        mac_cell    = f"[bold]{dev['mac']}[/bold]" if is_last else dev["mac"]
-        vendor_cell = f"[bold]{vendor}[/bold]" if is_last else vendor
+        ip_cell     = f"[success]{dev['ip']}[/success]" if is_last else dev["ip"]
+        mac_cell    = f"[success]{dev['mac']}[/success]" if is_last else dev["mac"]
+        vendor_cell = f"[success]{vendor}[/success]" if is_last else vendor
     
         table.add_row(ip_cell, mac_cell, vendor_cell)
       

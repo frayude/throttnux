@@ -82,32 +82,11 @@ def match_saved_config(config, devices):
     return matched if matched else None
     
     
-def prompt_use_saved_config(config, matched_devices):
-    """Ask user if they want to use the saved config."""
-    mode_str = config.get("operational_mode", "Blacklist").capitalize()
-    limit = config.get("limit_mbps", 1.0)
-    
-    console.print(f" [text]Last session : {mode_str} - {limit} Mbps[/text]")
-    
-   
-    if matched_devices:
-        max_ip_len = max([len(d["ip"]) for d in matched_devices])
-        for dev in matched_devices:
-            vendor = dev.get("vendor", "Unknown")
-            if not vendor or "locally administered" in vendor.lower():
-                vendor = "Unknown"
-            
-            if len(vendor) > 25:
-                vendor = vendor[:25]
-            
-            console.print(f"   [text]{dev['ip']:<{max_ip_len}}  • {vendor}[/text]")
-        
-    console.print()
-    
+def ask_user_action():
     answer = qselect(
         "What do you want to do?",
         choices=[
-            questionary.Choice("Resume session",    value="use_saved"),
+            questionary.Choice("Resume last session",    value="use_saved"),
             questionary.Choice("Start new session", value="new_scan"),
             questionary.Choice("Rescan network",    value="rescan"),
             questionary.Choice("Exit",              value="exit"),

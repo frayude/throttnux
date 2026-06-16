@@ -27,7 +27,7 @@ from core import (
     live_monitor,
     save_config,
     load_config,
-    prompt_use_saved_config,
+    ask_user_action,
     prompt_operational_mode,
     prompt_blacklist_selection,
     prompt_whitelist_selection,
@@ -106,11 +106,11 @@ def main():
         last_limit = None
     
     # 2. Display devices UI with table 
-    display_devices(devices, last_ips=last_ips)
+    display_devices(config, matched_dev, devices, last_ips=last_ips)
     
     
     if matched_dev and config.get("interface") == interface and config.get("router_ip") == router_ip:
-        action = prompt_use_saved_config(config, matched_dev)
+        action = ask_user_action()
 
         while action == "rescan":
             console.clear()
@@ -122,10 +122,10 @@ def main():
             matched_dev = match_saved_config(config, devices)
             if matched_dev:
                 last_ips_rescan = [d["ip"] for d in matched_dev]
-                display_devices(devices, last_ips=last_ips_rescan, last_limit_mbps=last_limit)
-                action = prompt_use_saved_config(config, matched_dev)
+                display_devices(config, matched_dev, devices, last_ips=last_ips_rescan)
+                action = ask_user_action()
             else:
-                display_devices(devices, last_ips=[], last_limit_mbps=None)
+                display_devices(devices, last_ips=[])
                 action = "new_scan"
                 break
         
