@@ -135,7 +135,10 @@ def prompt_blacklist_selection(devices, default_targets=None):
     initial_focus = None
     
     for dev in devices:
-        display_line = f"{dev['ip']:<15} {dev['mac']:<19} {dev['vendor'][:25]}"
+        
+        max_ip_len = max(len(dev['ip']) for dev in devices) 
+        display_line = f"{dev['ip']:<{max_ip_len}}  {dev['vendor']}"
+        
         is_checked = dev["mac"].lower() in default_macs
         
         choice = questionary.Choice(title=display_line, value=dev, checked=is_checked)
@@ -179,9 +182,11 @@ def prompt_whitelist_selection(devices, default_targets=None):
     initial_focus = None
     
     for dev in devices:
-        display_line = f"{dev['ip']:<15} · {dev['mac']:<19} · {dev['vendor']}"
+        max_ip_len = max(len(dev['ip']) for dev in devices) 
+        display_line = f"{dev['ip']:<{max_ip_len}}  {dev['vendor']}"
+
         is_checked = dev["mac"].lower() in default_macs
-        
+                
         choice = questionary.Choice(title=display_line, value=dev, checked=is_checked)
         choices.append(choice)
         
@@ -193,7 +198,7 @@ def prompt_whitelist_selection(devices, default_targets=None):
     
     try:
         answer = questionary.checkbox(
-            "Select whitelist targets:",
+            "Select targets:",
             qmark="",
             instruction="(Space to select, Enter to confirm)",
             choices=choices,
