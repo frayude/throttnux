@@ -86,10 +86,10 @@ def ask_user_action():
     answer = qselect(
         "What do you want to do?",
         choices=[
-            questionary.Choice("Resume last session",    value="use_saved"),
-            questionary.Choice("Start new session", value="new_scan"),
-            questionary.Choice("Rescan network",    value="rescan"),
-            questionary.Choice("Exit",              value="exit"),
+            questionary.Choice("Resume last session",   value="use_saved"),
+            questionary.Choice("Start new session",     value="new_scan"),
+            questionary.Choice("Rescan network",        value="rescan"),
+            questionary.Choice("Exit",                  value="exit"),
         ],
     )
  
@@ -107,10 +107,10 @@ def prompt_operational_mode():
     """Ask user to select operational mode when starting a new session."""
     try:
         answer = qselect(
-            "Select operational mode to begin:",
+            "Select mode:",
             [
-                questionary.Choice("Blacklist Mode (Throttle only the specific devices you select)", value="blacklist"),
-                questionary.Choice("Whitelist Mode (Throttle everyone except the safe devices you select)", value="whitelist")
+                questionary.Choice("Blacklist - throttle selected devices", value="blacklist"),
+                questionary.Choice("Whitelist - throttle all except selected", value="whitelist")
             ],
             )
 
@@ -135,7 +135,7 @@ def prompt_blacklist_selection(devices, default_targets=None):
     initial_focus = None
     
     for dev in devices:
-        display_line = f"{dev['ip']:<15} · {dev['mac']:<19} · {dev['vendor'][:25]}"
+        display_line = f"{dev['ip']:<15} {dev['mac']:<19} {dev['vendor'][:25]}"
         is_checked = dev["mac"].lower() in default_macs
         
         choice = questionary.Choice(title=display_line, value=dev, checked=is_checked)
@@ -149,7 +149,7 @@ def prompt_blacklist_selection(devices, default_targets=None):
     
     try:
         answer = questionary.checkbox(
-            "Select blacklist targets:",
+            "Select targets:",
             qmark="",
             instruction="(Space to select, Enter to confirm)",
             choices=choices,
