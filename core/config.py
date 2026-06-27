@@ -9,6 +9,7 @@ from .console import (custom_style,
                       console,
                       Panel,
                       Group,
+                      box,
                       qselect)
 
 log = logging.getLogger("throttnux")
@@ -17,9 +18,10 @@ CONFIG_DIR  = os.path.expanduser("~/.config/throttnux")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 
 
-def save_config(interface, router_ip, mode, targets, limit_mbps, status=None):
+def save_config(interface, router_ip, mode, targets, limit_mbps):
     """Save last session config to ~/.config/throttnux/config.json."""
     os.makedirs(CONFIG_DIR, exist_ok=True)
+    
     config = {
         "interface":        interface,
         "router_ip":        router_ip,
@@ -27,13 +29,10 @@ def save_config(interface, router_ip, mode, targets, limit_mbps, status=None):
         "targets":          targets,
         "limit_mbps":       limit_mbps,
     }
+    
     try:
         with open(CONFIG_FILE, "w") as f:
-            json.dump(config, f, indent=4)
-        
-        if status:
-            status.update(f"Config saved to {CONFIG_FILE}")
-            
+            json.dump(config, f, indent=4)  
     except Exception as e:
         log.warning(f"Failed to save config: {e}")
 
@@ -227,7 +226,7 @@ def prompt_session_review(interface, router_ip, mode, limit_mbps, targets):
         f"Interface        : {interface}\n"
         f"Router IP        : {router_ip}\n"
         f"Bandwidth Limit  : {limit_mbps} Mbps\n\n"
-        f"Targets to Throttle ({len(targets)} devices):"
+        f"Targets ({len(targets)}):"
     )
     
     max_ip_len = max([len(tgt["ip"]) for tgt in targets]) if targets else 15
@@ -254,10 +253,10 @@ def prompt_session_review(interface, router_ip, mode, limit_mbps, targets):
     console.print(
         Panel(
             content_group,
-            title="[bold white]CONFIGURATION REVIEW[/bold white]",
-            title_align="left",
-            padding=(1, 2),
-            expand=False
+            title="[bold white]Configuration Review[/bold white]",
+            title_align="center",
+            expand=False,
+            box=box.HORIZONTALS
         )
     )
 

@@ -23,7 +23,7 @@ def disable_ip_forward():
     run(f"echo 0 > {SYSCTL_IP_FORWARD_PATH}")
 
 
-def setup_traffic_shaping(interface, targets, limit_mbps, status=None):
+def setup_traffic_shaping(interface, targets, limit_mbps):
     """
     Setup tc HTB for one or multiple targets.
     targets: list of dicts with "ip" key, or single IP string.

